@@ -1,10 +1,11 @@
-const CACHE_NAME = 'atr-calc-v1';
+const CACHE_NAME = 'atr-calc-v2';
+const BASE = '/atr-calculator/';
 const ASSETS = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/icon-192.png',
-  '/icon-512.png'
+  BASE,
+  BASE + 'index.html',
+  BASE + 'manifest.json',
+  BASE + 'icon-192.png',
+  BASE + 'icon-512.png'
 ];
 
 self.addEventListener('install', event => {
@@ -24,7 +25,6 @@ self.addEventListener('activate', event => {
 });
 
 self.addEventListener('fetch', event => {
-  // 网络优先，失败时回退到缓存
   event.respondWith(
     fetch(event.request)
       .then(response => {
