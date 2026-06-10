@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>ATR 仓位计算器</title>
+    
+    <!-- PWA -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1a1a2e">
+    
+    <!-- iOS PWA 支持 -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="ATR计算器">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            min-height: -webkit-fill-available;
+            padding: 16px;
+            padding-top: calc(16px + env(safe-area-inset-top));
+            padding-bottom: calc(16px + env(safe-area-inset-bottom));
+            color: #e4e4e4;
+            -webkit-text-size-adjust: 100%;
+        }
+        
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #00d4aa;
+            font-size: 22px;
+            font-weight: 700;
+        }
+        
+        .card {
+            background: rgba(255, 255, 255, 0.06);
+            border-radius: 14px;
+            padding: 18px;
+            margin-bottom: 14px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        
+        .card-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #00d4aa;
+            margin-bottom: 14px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid rgba(0, 212, 170, 0.15);
+        }
+        
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .form-group.full-width {
+            grid-column: 1 / -1;
+        }
+        
+        .form-group label {
+            font-size: 12px;
+            color: #999;
+            margin-bottom: 5px;
+        }
+        
+        .form-group input,
+        .form-group select {
+            background: rgba(0, 0, 0, 0.35);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 10px 12px;
+            color: #fff;
+            font-size: 15px;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+        
+        .form-group select {
+            background: rgba(0, 0, 0, 0.35) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23999' fill='none' stroke-width='1.5'/%3E%3C/svg%3E") no-repeat right 12px center;
+            padding-right: 32px;
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #00d4aa;
+        }
+        
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #00d4aa 0%, #00a88a 100%);
+            border: none;
+            border-radius: 10px;
+            color: #fff;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 16px;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        .btn:active {
+            opacity: 0.8;
+            transform: scale(0.98);
+        }
+        
+        .btn:disabled {
+            background: #444;
+            opacity: 1;
+        }
+        
+        .result-section {
+            display: none;
+        }
+        
+        .result-section.show {
+            display: block;
+            animation: fadeIn 0.4s;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .result-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        
+        .result-item {
+            background: rgba(0, 0, 0, 0.25);
+            border-radius: 10px;
+            padding: 12px;
+            text-align: center;
+        }
+        
+        .result-item .label {
+            font-size: 11px;
+            color: #888;
+            margin-bottom: 4px;
+        }
+        
+        .result-item .value {
+            font-size: 16px;
+            font-weight: 600;
+            color: #fff;
+            word-break: break-all;
+        }
+        
+        .result-item .value.green { color: #00d4aa; }
+        .result-item .value.red { color: #ff4757; }
+        .result-item .value.yellow { color: #ffa502; }
+        
+        .price-levels { margin-top: 0; }
+        
+        .level-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 14px;
+            background: rgba(0, 0, 0, 0.25);
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }
+        
+        .level-row:last-child { margin-bottom: 0; }
+        
+        .level-row .level-label {
+            font-size: 13px;
+            color: #a0a0a0;
+        }
+        
+        .level-row .level-value {
+            font-size: 15px;
+            font-weight: 600;
+        }
+        
+        .level-row.stop-loss { border-left: 3px solid #ff4757; }
+        .level-row.stop-loss .level-value { color: #ff4757; }
+        .level-row.tp-2r { border-left: 3px solid #00d4aa; }
+        .level-row.tp-2r .level-value { color: #00d4aa; }
+        .level-row.tp-3r { border-left: 3px solid #00ff88; }
+        .level-row.tp-3r .level-value { color: #00ff88; }
+        
+        .recommendation-box {
+            background: rgba(0, 212, 170, 0.08);
+            border: 1px solid rgba(0, 212, 170, 0.2);
+            border-radius: 10px;
+            padding: 12px;
+            margin-top: 12px;
+        }
+        
+        .recommendation-box .rec-title {
+            font-size: 12px;
+            color: #00d4aa;
+            margin-bottom: 4px;
+        }
+        
+        .recommendation-box .rec-text {
+            font-size: 13px;
+            color: #e4e4e4;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 0.8s linear infinite;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .error-msg {
+            background: rgba(255, 71, 87, 0.1);
+            border: 1px solid rgba(255, 71, 87, 0.25);
+            border-radius: 10px;
+            padding: 12px;
+            margin-top: 12px;
+            color: #ff4757;
+            font-size: 13px;
+            display: none;
+        }
+        
+        .error-msg.show { display: block; }
+        
+        /* iPhone 小屏适配 */
+        @media (max-width: 380px) {
+            body { padding: 12px; }
+            .form-grid { gap: 10px; }
+            .result-item .value { font-size: 14px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 ATR 仓位计算器</h1>
+        
+        <div class="card">
+            <div class="card-title">交易参数</div>
+            <div class="form-grid">
+                <div class="form-group full-width">
+                    <label>交易对</label>
+                    <input type="text" id="symbol" value="BTC-USDT-SWAP" placeholder="如 BTC-USDT-SWAP" autocapitalize="characters" autocorrect="off">
+                </div>
+                <div class="form-group">
+                    <label>方向</label>
+                    <select id="direction">
+                        <option value="long">做多 (Long)</option>
+                        <option value="short">做空 (Short)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>周期</label>
+                    <select id="timeframe">
+                        <option value="1m">1分钟</option>
+                        <option value="5m">5分钟</option>
+                        <option value="15m">15分钟</option>
+                        <option value="30m">30分钟</option>
+                        <option value="1H" selected>1小时</option>
+                        <option value="4H">4小时</option>
+                        <option value="1D">1天</option>
+                        <option value="1W">1周</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>ATR 倍数</label>
+                    <select id="atrMultiple">
+                        <option value="0.5">0.5</option>
+                        <option value="1" selected>1</option>
+                        <option value="1.5">1.5</option>
+                        <option value="2">2</option>
+                        <option value="3">3</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>本金 (USDT)</label>
+                    <input type="number" id="capital" value="1000" min="0" step="100" inputmode="decimal">
+                </div>
+                <div class="form-group">
+                    <label>单笔风险 %</label>
+                    <input type="number" id="riskPercent" value="1" min="0.1" max="100" step="0.1" inputmode="decimal">
+                </div>
+                <div class="form-group">
+                    <label>杠杆倍数</label>
+                    <input type="number" id="leverage" value="10" min="1" max="125" step="1" inputmode="numeric">
+                </div>
+            </div>
+            <button class="btn" id="calculateBtn" onclick="calculate()">开始计算</button>
+            <div class="error-msg" id="errorMsg"></div>
+        </div>
+        
+        <div class="result-section" id="resultSection">
+            <div class="card">
+                <div class="card-title">市场数据</div>
+                <div class="result-grid">
+                    <div class="result-item">
+                        <div class="label">实时价格</div>
+                        <div class="value" id="entryPrice">-</div>
+                    </div>
+                    <div class="result-item">
+                        <div class="label">ATR(14)</div>
+                        <div class="value" id="atrValue">-</div>
+                    </div>
+                    <div class="result-item">
+                        <div class="label">ATR/价格</div>
+                        <div class="value yellow" id="atrPercent">-</div>
+                    </div>
+                    <div class="result-item">
+                        <div class="label">1R 距离</div>
+                        <div class="value" id="riskDistance">-</div>
+                    </div>
+                </div>
+                <div class="recommendation-box">
+                    <div class="rec-title">波动率建议</div>
+                    <div class="rec-text" id="recommendation">-</div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-title">止盈止损价位</div>
+                <div class="price-levels">
+                    <div class="level-row stop-loss">
+                        <span class="level-label">🛑 止损 (1R)</span>
+                        <span class="level-value" id="stopLoss">-</span>
+                    </div>
+                    <div class="level-row tp-2r">
+                        <span class="level-label">🎯 止盈 (2R)</span>
+                        <span class="level-value" id="tp2r">-</span>
+                    </div>
+                    <div class="level-row tp-3r">
+                        <span class="level-label">🎯 止盈 (3R)</span>
+                        <span class="level-value" id="tp3r">-</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-title">资金管理</div>
+                <div class="result-grid">
+                    <div class="result-item">
+                        <div class="label">本金</div>
+                        <div class="value" id="displayCapital">-</div>
+                    </div>
+                    <div class="result-item">
+                        <div class="label">最大亏损</div>
+                        <div class="value red" id="maxLoss">-</div>
+                    </div>
+                    <div class="result-item">
+                        <div class="label">理论仓位</div>
+                        <div class="value" id="positionValue">-</div>
+                    </div>
+                    <div class="result-item">
+                        <div class="label">杠杆</div>
+                        <div class="value yellow" id="displayLeverage">-</div>
+                    </div>
+                    <div class="result-item">
+                        <div class="label">所需保证金</div>
+                        <div class="value green" id="margin">-</div>
+                    </div>
+                    <div class="result-item">
+                        <div class="label">可开数量</div>
+                        <div class="value green" id="quantity">-</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const OKX_API = 'https://www.okx.com';
+        
+        async function fetchOHLCV(symbol, timeframe, limit = 64) {
+            const url = `${OKX_API}/api/v5/market/candles?instId=${symbol}&bar=${timeframe}&limit=${limit}`;
+            const response = await fetch(url);
+            const data = await response.json();
+            if (data.code !== '0') throw new Error(data.msg || '获取K线数据失败');
+            return data.data.reverse().map(candle => ({
+                timestamp: parseInt(candle[0]),
+                open: parseFloat(candle[1]),
+                high: parseFloat(candle[2]),
+                low: parseFloat(candle[3]),
+                close: parseFloat(candle[4]),
+                volume: parseFloat(candle[5])
+            }));
+        }
+        
+        async function fetchTicker(symbol) {
+            const url = `${OKX_API}/api/v5/market/ticker?instId=${symbol}`;
+            const response = await fetch(url);
+            const data = await response.json();
+            if (data.code !== '0') throw new Error(data.msg || '获取Ticker失败');
+            return { last: parseFloat(data.data[0].last) };
+        }
+        
+        function calculateATR(ohlcv, period = 14) {
+            if (ohlcv.length < period + 1) throw new Error('K线数据不足');
+            let trValues = [];
+            for (let i = 1; i < ohlcv.length; i++) {
+                const { high, low } = ohlcv[i];
+                const prevClose = ohlcv[i - 1].close;
+                trValues.push(Math.max(high - low, Math.abs(high - prevClose), Math.abs(low - prevClose)));
+            }
+            let atr = trValues[0];
+            const alpha = 1 / period;
+            for (let i = 1; i < trValues.length; i++) {
+                atr = trValues[i] * alpha + atr * (1 - alpha);
+            }
+            return atr;
+        }
+        
+        function formatNumber(num) {
+            if (num >= 1) return num.toFixed(Math.min(6, 4));
+            return num.toPrecision(4);
+        }
+        
+        async function calculate() {
+            const btn = document.getElementById('calculateBtn');
+            const errorMsg = document.getElementById('errorMsg');
+            const resultSection = document.getElementById('resultSection');
+            
+            errorMsg.classList.remove('show');
+            resultSection.classList.remove('show');
+            
+            const symbol = document.getElementById('symbol').value.trim().toUpperCase();
+            const direction = document.getElementById('direction').value;
+            const timeframe = document.getElementById('timeframe').value;
+            const atrMultiple = parseFloat(document.getElementById('atrMultiple').value);
+            const capital = parseFloat(document.getElementById('capital').value);
+            const riskPercent = parseFloat(document.getElementById('riskPercent').value);
+            const leverage = parseFloat(document.getElementById('leverage').value);
+            
+            if (!symbol) { showError('请输入交易对'); return; }
+            if (isNaN(capital) || capital <= 0) { showError('请输入有效的本金'); return; }
+            if (isNaN(riskPercent) || riskPercent <= 0 || riskPercent > 100) { showError('风险百分比 0.1-100'); return; }
+            if (isNaN(leverage) || leverage < 1 || leverage > 125) { showError('杠杆倍数 1-125'); return; }
+            
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading"></span>计算中...';
+            
+            try {
+                const [ticker, ohlcv] = await Promise.all([
+                    fetchTicker(symbol),
+                    fetchOHLCV(symbol, timeframe, 64)
+                ]);
+                
+                const entryPrice = ticker.last;
+                const atr14 = calculateATR(ohlcv, 14);
+                const riskDistance = atr14 * atrMultiple;
+                
+                let stopLoss, tp2r, tp3r;
+                if (direction === 'long') {
+                    stopLoss = entryPrice - riskDistance;
+                    tp2r = entryPrice + riskDistance * 2;
+                    tp3r = entryPrice + riskDistance * 3;
+                } else {
+                    stopLoss = entryPrice + riskDistance;
+                    tp2r = entryPrice - riskDistance * 2;
+                    tp3r = entryPrice - riskDistance * 3;
+                }
+                
+                const atrPercent = (atr14 / entryPrice) * 100;
+                let recommendation;
+                if (atrPercent < 5) recommendation = '低波动，推荐 2~3 ATR';
+                else if (atrPercent < 10) recommendation = '中低波动，推荐 1.5~2 ATR';
+                else if (atrPercent < 20) recommendation = '中高波动，推荐 1~1.5 ATR';
+                else recommendation = '高波动山寨币，推荐 0.5~1 ATR';
+                
+                const maxLoss = capital * riskPercent / 100;
+                const positionValue = maxLoss / (Math.abs(entryPrice - stopLoss) / entryPrice);
+                const margin = positionValue / leverage;
+                const quantity = positionValue / entryPrice;
+                
+                document.getElementById('entryPrice').textContent = formatNumber(entryPrice);
+                document.getElementById('atrValue').textContent = formatNumber(atr14);
+                document.getElementById('atrPercent').textContent = atrPercent.toFixed(2) + '%';
+                document.getElementById('riskDistance').textContent = formatNumber(riskDistance);
+                document.getElementById('recommendation').textContent = recommendation;
+                document.getElementById('stopLoss').textContent = formatNumber(stopLoss);
+                document.getElementById('tp2r').textContent = formatNumber(tp2r);
+                document.getElementById('tp3r').textContent = formatNumber(tp3r);
+                document.getElementById('displayCapital').textContent = capital.toFixed(2) + ' USDT';
+                document.getElementById('maxLoss').textContent = maxLoss.toFixed(2) + ' USDT';
+                document.getElementById('positionValue').textContent = positionValue.toFixed(2) + ' USDT';
+                document.getElementById('displayLeverage').textContent = leverage + 'x';
+                document.getElementById('margin').textContent = margin.toFixed(2) + ' USDT';
+                document.getElementById('quantity').textContent = formatNumber(quantity);
+                
+                resultSection.classList.add('show');
+            } catch (error) {
+                showError(error.message || '计算失败，请检查交易对');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '开始计算';
+            }
+        }
+        
+        function showError(msg) {
+            const el = document.getElementById('errorMsg');
+            el.textContent = '❌ ' + msg;
+            el.classList.add('show');
+        }
+        
+        // Service Worker 注册
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js').catch(() => {});
+        }
+    </script>
+</body>
+</html>
